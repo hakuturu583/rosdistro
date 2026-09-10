@@ -27,17 +27,19 @@
 
 import json
 import os
+import urllib.error
 
-from . import open_gz_url
+from . import open_compressed_url
 from . import PackageEntry
 from . import RepositoryCacheCollection
+from . import SkipPlatform
 
 
 def enumerate_recipes(base_url, branch_name):
     recipes_url = os.path.join(base_url, 'recipes')
     recipes_url += f'?filter=layerbranch__branch__name:{branch_name}'
     print('Reading OpenEmbedded recipe metadata from ' + recipes_url)
-    with open_gz_url(recipes_url) as f:
+    with open_compressed_url(recipes_url) as f:
         yield from json.load(f)
 
 
@@ -46,7 +48,7 @@ def enumerate_layers_by_layer_branch_id(base_url, branch_name):
     layer_branches_url = os.path.join(base_url, 'layerBranches')
     layer_branches_url += f'?filter=branch__name:{branch_name}'
     print('Reading OpenEmbedded layer branches from ' + layer_branches_url)
-    with open_gz_url(layer_branches_url) as f:
+    with open_compressed_url(layer_branches_url) as f:
         for layer_branch in json.load(f):
             layer_branch_id = str(layer_branch.get('id', ''))
             layer_id = str(layer_branch.get('layer', ''))
@@ -63,7 +65,7 @@ def enumerate_layers_by_layer_branch_id(base_url, branch_name):
 def enumerate_layers(base_url):
     layers_url = os.path.join(base_url, 'layerItems')
     print('Reading OpenEmbedded layers from ' + layers_url)
-    with open_gz_url(layers_url) as f:
+    with open_compressed_url(layers_url) as f:
         for layer in json.load(f):
             layer_id = str(layer.get('id', ''))
             layer_name = layer.get('name')
@@ -106,6 +108,13 @@ def enumerate_layer_index_packages(base_url, branch_name):
             yield PackageEntry(f'{prov}@{layer}', pv, recipe_url, pn, pn)
 
 
+def try_enumerate_layer_index_packages(base_url, os_name, branch_name):
+    try:
+        yield from enumerate_layer_index_packages(base_url, branch_name)
+    except urllib.error.HTTPError as e:
+        raise SkipPlatform(os_name) from e
+
+
 def layer_index_url(base_url):
     """
     Create an enumerable cache for an OpenEmbedded layer index.
@@ -116,4 +125,5 @@ def layer_index_url(base_url):
     """
     return RepositoryCacheCollection(
         lambda os_name, os_code_name, os_arch:
-            enumerate_layer_index_packages(base_url, os_code_name))
+            try_enumerate_layer_index_packages(
+                base_url, os_name, os_code_name))
