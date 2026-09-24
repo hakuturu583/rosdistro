@@ -9569,7 +9569,7 @@ repositories:
       tags:
         release: release/kilted/{package}/{version}
       url: https://github.com/hakuturu583/rviz2_cinematographer-release.git
-      version: 0.2.0-1
+      version: 0.2.0-2
     source:
       type: git
       url: https://github.com/hakuturu583/rviz_cinematographer.git
